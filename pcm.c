@@ -189,8 +189,9 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 
 	if (rt->stream_state == STREAM_DISABLED) {
 
-		/* reset panic state when starting a new stream */
+		/* reset panic and wait condition when starting a new stream */
 		rt->panic = false;
+		rt->stream_wait_cond = false;
 		
 		/* the device is rather forgetful, after some time without
 		 * URBs the device fallbacks to 16bit mode */
