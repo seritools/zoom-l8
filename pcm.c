@@ -164,7 +164,6 @@ static int zoom_interface_init(struct pcm_runtime *rt)
 
 	ret = usb_set_interface(rt->chip->dev, 1, 3); /* ALT=1 EP1 OUT 32 bit */
 	if (ret != 0) {
-		zoom_pcm_stream_stop(rt);
 		dev_err(&rt->chip->dev->dev,
 				"can't set first interface for device.\n");
 		return -EIO;
@@ -172,7 +171,6 @@ static int zoom_interface_init(struct pcm_runtime *rt)
 
 	ret = usb_set_interface(rt->chip->dev, 2, 3); /* ALT=2 EP2 IN 32 bit */
 	if (ret != 0) {
-		zoom_pcm_stream_stop(rt);
 		dev_err(&rt->chip->dev->dev,
 				"can't set second interface for device.\n");
 		return -EIO;
@@ -386,7 +384,6 @@ static void zoom_pcm_in_urb_handler(struct urb *usb_urb)
 	}
 
 	sub = &rt->capture;
-#if 1
 	spin_lock_irqsave(&sub->lock, flags);
 	if (sub->active) {
 		do_period_elapsed = zoom_pcm_capture(sub, in_urb);
@@ -395,7 +392,6 @@ static void zoom_pcm_in_urb_handler(struct urb *usb_urb)
 	if (do_period_elapsed)
 		snd_pcm_period_elapsed(sub->instance);
 
-#endif
 	ret = usb_submit_urb(&in_urb->instance, GFP_ATOMIC);
 	if (ret < 0)
 		goto out_fail;
@@ -703,7 +699,7 @@ int zoom_pcm_init(struct zoom_chip *chip)
 		ret = zoom_pcm_init_urb_out(&rt->out_urbs[i], chip, OUT_EP,
 				    zoom_pcm_out_urb_handler);
 		if (ret < 0) {
-			printk("zoom_pcm_init_urb_out\n");
+			dev_err(&chip->dev->dev, "zoom_pcm_init_urb_out\n");
 			goto error;
 		}
 	}
@@ -712,7 +708,7 @@ int zoom_pcm_init(struct zoom_chip *chip)
 		ret = zoom_pcm_init_urb_in(&rt->in_urbs[i], chip, IN_EP,
 				    zoom_pcm_in_urb_handler);
 		if (ret < 0) {
-			printk("zoom_pcm_init_urb_in\n");
+			dev_err(&chip->dev->dev, "zoom_pcm_init_urb_in\n");
 			goto error;
 		}
 	}
