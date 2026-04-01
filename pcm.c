@@ -244,10 +244,11 @@ static void memcpy_pcm(u8 *dest, u8 *src, u8 ch_sz,
 {
 	unsigned int i, c, o = 0;
 
-	for (i = 0; i < PCM_URB_SIZE; i++) {
+	for (i = 0; i < PCM_URB_SIZE; ) {
 		if (i % 128) {
 			if (padding)
 				dest[i] = 0; /* Padding */
+			i++;
 			continue;
 		}
 
