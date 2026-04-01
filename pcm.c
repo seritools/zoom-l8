@@ -240,30 +240,26 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 static void memcpy_pcm(u8 *dest, u8 *src, u8 ch_sz,
 		unsigned int skip, unsigned int len, bool padding)
 {
-	unsigned int i, c, o = 0;
+	unsigned int frame, b, o = 0;
 
-	for (i = 0; i < PCM_URB_SIZE; ) {
-		if (i % 128) {
-			if (padding)
-				dest[i] = 0; /* Padding */
-			i++;
-			continue;
-		}
+	for (frame = 0; frame < PCM_URB_SIZE / 128; frame++) {
+		unsigned int base = frame * 128;
 
-		for (c = 0; c < ch_sz; c++) {
-			if (skip && skip--) {
-				i++;
+		for (b = 0; b < ch_sz; b++) {
+			if (skip) {
+				skip--;
 				continue;
 			}
-
 			if (len && o >= len)
 				return;
-
 			if (padding)
-				dest[i++] = src[o++];
+				dest[base + b] = src[o++];
 			else
-				dest[o++] = src[i++];
+				dest[o++] = src[base + b];
 		}
+
+		if (padding)
+			memset(dest + base + ch_sz, 0, 128 - ch_sz);
 	}
 }
 
