@@ -190,7 +190,7 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 		/* reset panic and wait condition when starting a new stream */
 		rt->panic = false;
 		rt->stream_wait_cond = false;
-		
+
 		/* the device is rather forgetful, after some time without
 		 * URBs the device fallbacks to 16bit mode */
 		ret = zoom_interface_init(rt);
@@ -236,9 +236,8 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 	return ret;
 }
 
-
-static void memcpy_pcm(u8 *dest, u8 *src, u8 ch_sz,
-		unsigned int skip, unsigned int len, bool padding)
+static void memcpy_pcm_capture(u8 *dest, u8 *src, u8 ch_sz,
+		unsigned int skip, unsigned int len)
 {
 	unsigned int frame, b, o = 0;
 
@@ -252,14 +251,30 @@ static void memcpy_pcm(u8 *dest, u8 *src, u8 ch_sz,
 			}
 			if (len && o >= len)
 				return;
-			if (padding)
-				dest[base + b] = src[o++];
-			else
-				dest[o++] = src[base + b];
+			dest[o++] = src[base + b];
+		}
+	}
+}
+
+static void memcpy_pcm_playback(u8 *dest, u8 *src, u8 ch_sz,
+		unsigned int skip, unsigned int len)
+{
+	unsigned int frame, b, o = 0;
+
+	for (frame = 0; frame < PCM_URB_SIZE / 128; frame++) {
+		unsigned int base = frame * 128;
+
+		for (b = 0; b < ch_sz; b++) {
+			if (skip) {
+				skip--;
+				continue;
+			}
+			if (len && o >= len)
+				return;
+			dest[base + b] = src[o++];
 		}
 
-		if (padding)
-			memset(dest + base + ch_sz, 0, 128 - ch_sz);
+		memset(dest + base + ch_sz, 0, 128 - ch_sz);
 	}
 }
 
@@ -285,19 +300,19 @@ static bool zoom_pcm_capture(struct pcm_substream *sub, struct pcm_urb *urb)
 			 (unsigned int) sub->dma_off);
 
 		dest = alsa_rt->dma_area + sub->dma_off;
-		memcpy_pcm(dest, urb->buffer, ch_sz, 0, 0, false);
+		memcpy_pcm_capture(dest, urb->buffer, ch_sz, 0, 0);
 	} else {
 		/* wrap around at end of ring buffer */
 		dev_dbg(device, "%s: (2) buffer_size %#x dma_offset %#x\n", __func__,
 			 (unsigned int) pcm_buffer_size,
 			 (unsigned int) sub->dma_off);
-		
+
 		len = pcm_buffer_size - sub->dma_off;
 		dest = alsa_rt->dma_area + sub->dma_off;
-		memcpy_pcm(dest, urb->buffer, ch_sz, 0, len, false);
+		memcpy_pcm_capture(dest, urb->buffer, ch_sz, 0, len);
 
 		dest = alsa_rt->dma_area;
-		memcpy_pcm(dest, urb->buffer, ch_sz, len, pcm_len - len, false);
+		memcpy_pcm_capture(dest, urb->buffer, ch_sz, len, pcm_len - len);
 
 	}
 	sub->dma_off += pcm_len;
@@ -334,7 +349,7 @@ static bool zoom_pcm_playback(struct pcm_substream *sub, struct pcm_urb *urb)
 			 (unsigned int) sub->dma_off);
 
 		source = alsa_rt->dma_area + sub->dma_off;
-		memcpy_pcm(urb->buffer, source, ch_sz, 0, 0, true);
+		memcpy_pcm_playback(urb->buffer, source, ch_sz, 0, 0);
 	} else {
 		/* wrap around at end of ring buffer */
 		dev_info(device, "%s: (2) buffer_size %#x dma_offset %#x\n", __func__,
@@ -343,10 +358,10 @@ static bool zoom_pcm_playback(struct pcm_substream *sub, struct pcm_urb *urb)
 
 		len = pcm_buffer_size - sub->dma_off;
 		source = alsa_rt->dma_area + sub->dma_off;
-		memcpy_pcm(urb->buffer, source, ch_sz, 0, len, true);
+		memcpy_pcm_playback(urb->buffer, source, ch_sz, 0, len);
 
 		source = alsa_rt->dma_area;
-		memcpy_pcm(urb->buffer, source, ch_sz, len, pcm_len - len, true);
+		memcpy_pcm_playback(urb->buffer, source, ch_sz, len, pcm_len - len);
 	}
 	sub->dma_off += pcm_len;
 	if (sub->dma_off >= pcm_buffer_size)
@@ -397,7 +412,7 @@ static void zoom_pcm_in_urb_handler(struct urb *usb_urb)
 out_fail:
 	rt->panic = true;
 }
-	
+
 static void zoom_pcm_out_urb_handler(struct urb *usb_urb)
 {
 	struct pcm_urb *out_urb = usb_urb->context;
