@@ -225,7 +225,7 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 				   HZ);
 		if (rt->stream_wait_cond) {
 			struct device *device = &rt->chip->dev->dev;
-			dev_info(device, "%s: Stream is running wakeup event\n",
+			dev_dbg(device, "%s: Stream is running wakeup event\n",
 				 __func__);
 			rt->stream_state = STREAM_RUNNING;
 		} else {
@@ -352,7 +352,7 @@ static bool zoom_pcm_playback(struct pcm_substream *sub, struct pcm_urb *urb)
 		memcpy_pcm_playback(urb->buffer, source, ch_sz, 0, 0);
 	} else {
 		/* wrap around at end of ring buffer */
-		dev_info(device, "%s: (2) buffer_size %#x dma_offset %#x\n", __func__,
+		dev_dbg(device, "%s: (2) buffer_size %#x dma_offset %#x\n", __func__,
 			 (unsigned int) pcm_buffer_size,
 			 (unsigned int) sub->dma_off);
 
@@ -710,7 +710,7 @@ int zoom_pcm_init(struct zoom_chip *chip)
 		ret = zoom_pcm_init_urb_out(&rt->out_urbs[i], chip, OUT_EP,
 				    zoom_pcm_out_urb_handler);
 		if (ret < 0) {
-			dev_err(&chip->dev->dev, "zoom_pcm_init_urb_out\n");
+			dev_err(&chip->dev->dev, "zoom_pcm_init_urb_out failed\n");
 			goto error;
 		}
 	}
@@ -719,7 +719,7 @@ int zoom_pcm_init(struct zoom_chip *chip)
 		ret = zoom_pcm_init_urb_in(&rt->in_urbs[i], chip, IN_EP,
 				    zoom_pcm_in_urb_handler);
 		if (ret < 0) {
-			dev_err(&chip->dev->dev, "zoom_pcm_init_urb_in\n");
+			dev_err(&chip->dev->dev, "zoom_pcm_init_urb_in failed\n");
 			goto error;
 		}
 	}
