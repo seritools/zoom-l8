@@ -17,7 +17,7 @@
 #define IN_EP           0x82
 #define OUT_EP          0x01
 #define PCM_N_URBS      4
-#define PCM_URB_SIZE 512
+#define PCM_URB_SIZE    512
 #define PCM_PACKET_SIZE (4 * 4) /* 32 Bit x Frames/URB */
 
 struct pcm_urb {
@@ -112,8 +112,8 @@ static const struct snd_pcm_hardware pcm_hw_rec = {
 	.periods_max = 1024
 };
 
-static struct pcm_substream *zoom_pcm_get_substream(struct snd_pcm_substream
-						      *alsa_sub)
+static struct pcm_substream *zoom_pcm_get_substream(
+	struct snd_pcm_substream *alsa_sub)
 {
 	struct pcm_runtime *rt = snd_pcm_substream_chip(alsa_sub);
 	struct device *device = &rt->chip->dev->dev;
@@ -138,7 +138,7 @@ static void zoom_pcm_stream_stop(struct pcm_runtime *rt)
 
 		for (i = 0; i < PCM_N_URBS; i++) {
 			time = usb_wait_anchor_empty_timeout(
-					&rt->out_urbs[i].submitted, 100);
+				&rt->out_urbs[i].submitted, 100);
 			if (!time)
 				usb_kill_anchored_urbs(
 					&rt->out_urbs[i].submitted);
@@ -147,7 +147,7 @@ static void zoom_pcm_stream_stop(struct pcm_runtime *rt)
 
 		for (i = 0; i < PCM_N_URBS; i++) {
 			time = usb_wait_anchor_empty_timeout(
-					&rt->in_urbs[i].submitted, 100);
+				&rt->in_urbs[i].submitted, 100);
 			if (!time)
 				usb_kill_anchored_urbs(
 					&rt->in_urbs[i].submitted);
@@ -165,14 +165,14 @@ static int zoom_interface_init(struct pcm_runtime *rt)
 	ret = usb_set_interface(rt->chip->dev, 1, 3); /* ALT=1 EP1 OUT 32 bit */
 	if (ret != 0) {
 		dev_err(&rt->chip->dev->dev,
-				"can't set first interface for device.\n");
+			"can't set first interface for device.\n");
 		return -EIO;
 	}
 
 	ret = usb_set_interface(rt->chip->dev, 2, 3); /* ALT=2 EP2 IN 32 bit */
 	if (ret != 0) {
 		dev_err(&rt->chip->dev->dev,
-				"can't set second interface for device.\n");
+			"can't set second interface for device.\n");
 		return -EIO;
 	}
 
@@ -186,7 +186,6 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 	int i;
 
 	if (rt->stream_state == STREAM_DISABLED) {
-
 		/* reset panic and wait condition when starting a new stream */
 		rt->panic = false;
 		rt->stream_wait_cond = false;
@@ -226,7 +225,7 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 		if (rt->stream_wait_cond) {
 			struct device *device = &rt->chip->dev->dev;
 			dev_dbg(device, "%s: Stream is running wakeup event\n",
-				 __func__);
+				__func__);
 			rt->stream_state = STREAM_RUNNING;
 		} else {
 			zoom_pcm_stream_stop(rt);
@@ -236,8 +235,8 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 	return ret;
 }
 
-static void memcpy_pcm_capture(u8 *dest, u8 *src, u8 ch_sz,
-		unsigned int skip, unsigned int len)
+static void memcpy_pcm_capture(u8 *dest, u8 *src, u8 ch_sz, unsigned int skip,
+			       unsigned int len)
 {
 	unsigned int frame, b, o = 0;
 
@@ -256,8 +255,8 @@ static void memcpy_pcm_capture(u8 *dest, u8 *src, u8 ch_sz,
 	}
 }
 
-static void memcpy_pcm_playback(u8 *dest, u8 *src, u8 ch_sz,
-		unsigned int skip, unsigned int len)
+static void memcpy_pcm_playback(u8 *dest, u8 *src, u8 ch_sz, unsigned int skip,
+				unsigned int len)
 {
 	unsigned int frame, b, o = 0;
 
@@ -295,25 +294,27 @@ static bool zoom_pcm_capture(struct pcm_substream *sub, struct pcm_urb *urb)
 	pcm_len = ch_sz * 4; /* Channel size * 4 Frames */
 
 	if (sub->dma_off + pcm_len <= pcm_buffer_size) {
-		dev_dbg(device, "%s: (1) buffer_size %#x dma_offset %#x\n", __func__,
-			 (unsigned int) pcm_buffer_size,
-			 (unsigned int) sub->dma_off);
+		dev_dbg(device,
+			"%s: (1) buffer_size %#x dma_offset %#x\n", __func__,
+			(unsigned int)pcm_buffer_size,
+			(unsigned int)sub->dma_off);
 
 		dest = alsa_rt->dma_area + sub->dma_off;
 		memcpy_pcm_capture(dest, urb->buffer, ch_sz, 0, 0);
 	} else {
 		/* wrap around at end of ring buffer */
-		dev_dbg(device, "%s: (2) buffer_size %#x dma_offset %#x\n", __func__,
-			 (unsigned int) pcm_buffer_size,
-			 (unsigned int) sub->dma_off);
+		dev_dbg(device,
+			"%s: (2) buffer_size %#x dma_offset %#x\n", __func__,
+			(unsigned int)pcm_buffer_size,
+			(unsigned int)sub->dma_off);
 
 		len = pcm_buffer_size - sub->dma_off;
 		dest = alsa_rt->dma_area + sub->dma_off;
 		memcpy_pcm_capture(dest, urb->buffer, ch_sz, 0, len);
 
 		dest = alsa_rt->dma_area;
-		memcpy_pcm_capture(dest, urb->buffer, ch_sz, len, pcm_len - len);
-
+		memcpy_pcm_capture(dest, urb->buffer, ch_sz, len,
+				   pcm_len - len);
 	}
 	sub->dma_off += pcm_len;
 	if (sub->dma_off >= pcm_buffer_size)
@@ -345,23 +346,24 @@ static bool zoom_pcm_playback(struct pcm_substream *sub, struct pcm_urb *urb)
 
 	if (sub->dma_off + pcm_len <= pcm_buffer_size) {
 		dev_dbg(device, "%s: (1) buffer_size %#x dma_offset %#x\n", __func__,
-			 (unsigned int) pcm_buffer_size,
-			 (unsigned int) sub->dma_off);
+			(unsigned int)pcm_buffer_size,
+			(unsigned int)sub->dma_off);
 
 		source = alsa_rt->dma_area + sub->dma_off;
 		memcpy_pcm_playback(urb->buffer, source, ch_sz, 0, 0);
 	} else {
 		/* wrap around at end of ring buffer */
 		dev_dbg(device, "%s: (2) buffer_size %#x dma_offset %#x\n", __func__,
-			 (unsigned int) pcm_buffer_size,
-			 (unsigned int) sub->dma_off);
+			(unsigned int)pcm_buffer_size,
+			(unsigned int)sub->dma_off);
 
 		len = pcm_buffer_size - sub->dma_off;
 		source = alsa_rt->dma_area + sub->dma_off;
 		memcpy_pcm_playback(urb->buffer, source, ch_sz, 0, len);
 
 		source = alsa_rt->dma_area;
-		memcpy_pcm_playback(urb->buffer, source, ch_sz, len, pcm_len - len);
+		memcpy_pcm_playback(urb->buffer, source, ch_sz, len,
+				    pcm_len - len);
 	}
 	sub->dma_off += pcm_len;
 	if (sub->dma_off >= pcm_buffer_size)
@@ -441,9 +443,8 @@ static void zoom_pcm_out_urb_handler(struct urb *usb_urb)
 	sub = &rt->playback;
 	spin_lock_irqsave(&sub->lock, flags);
 
-	if (sub->active) {
+	if (sub->active)
 		do_period_elapsed = zoom_pcm_playback(sub, out_urb);
-	}
 	else
 		memset(out_urb->buffer, 0, PCM_URB_SIZE);
 
@@ -514,7 +515,6 @@ static int zoom_pcm_close(struct snd_pcm_substream *alsa_sub)
 		sub->instance = NULL;
 		sub->active = false;
 		spin_unlock_irqrestore(&sub->lock, flags);
-
 	}
 	mutex_unlock(&rt->stream_mutex);
 	return 0;
@@ -539,7 +539,6 @@ static int zoom_pcm_prepare(struct snd_pcm_substream *alsa_sub)
 	sub->period_off = 0;
 
 	if (rt->stream_state == STREAM_DISABLED) {
-
 		ret = zoom_pcm_stream_start(rt);
 		if (ret) {
 			mutex_unlock(&rt->stream_mutex);
@@ -604,10 +603,8 @@ static const struct snd_pcm_ops pcm_ops = {
 	.pointer = zoom_pcm_pointer,
 };
 
-static int zoom_pcm_init_urb_out(struct pcm_urb *urb,
-			       struct zoom_chip *chip,
-			       unsigned int ep,
-			       void (*handler)(struct urb *))
+static int zoom_pcm_init_urb_out(struct pcm_urb *urb, struct zoom_chip *chip,
+				 unsigned int ep, void (*handler)(struct urb *))
 {
 	urb->chip = chip;
 	usb_init_urb(&urb->instance);
@@ -626,10 +623,8 @@ static int zoom_pcm_init_urb_out(struct pcm_urb *urb,
 	return 0;
 }
 
-static int zoom_pcm_init_urb_in(struct pcm_urb *urb,
-			       struct zoom_chip *chip,
-			       unsigned int ep,
-			       void (*handler)(struct urb *))
+static int zoom_pcm_init_urb_in(struct pcm_urb *urb, struct zoom_chip *chip,
+				unsigned int ep, void (*handler)(struct urb *))
 {
 	urb->chip = chip;
 	usb_init_urb(&urb->instance);
@@ -708,18 +703,20 @@ int zoom_pcm_init(struct zoom_chip *chip)
 
 	for (i = 0; i < PCM_N_URBS; i++) {
 		ret = zoom_pcm_init_urb_out(&rt->out_urbs[i], chip, OUT_EP,
-				    zoom_pcm_out_urb_handler);
+					    zoom_pcm_out_urb_handler);
 		if (ret < 0) {
-			dev_err(&chip->dev->dev, "zoom_pcm_init_urb_out failed\n");
+			dev_err(&chip->dev->dev,
+				"zoom_pcm_init_urb_out failed\n");
 			goto error;
 		}
 	}
 
 	for (i = 0; i < PCM_N_URBS; i++) {
 		ret = zoom_pcm_init_urb_in(&rt->in_urbs[i], chip, IN_EP,
-				    zoom_pcm_in_urb_handler);
+					   zoom_pcm_in_urb_handler);
 		if (ret < 0) {
-			dev_err(&chip->dev->dev, "zoom_pcm_init_urb_in failed\n");
+			dev_err(&chip->dev->dev,
+				"zoom_pcm_init_urb_in failed\n");
 			goto error;
 		}
 	}
@@ -736,8 +733,7 @@ int zoom_pcm_init(struct zoom_chip *chip)
 	strscpy(pcm->name, "USB Audio", sizeof(pcm->name));
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_PLAYBACK, &pcm_ops);
 	snd_pcm_set_ops(pcm, SNDRV_PCM_STREAM_CAPTURE, &pcm_ops);
-	snd_pcm_set_managed_buffer_all(pcm, SNDRV_DMA_TYPE_VMALLOC,
-				       NULL, 0, 0);
+	snd_pcm_set_managed_buffer_all(pcm, SNDRV_DMA_TYPE_VMALLOC, NULL, 0, 0);
 
 	rt->instance = pcm;
 

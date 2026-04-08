@@ -40,9 +40,9 @@ struct zoom_vendor_quirk {
 };
 
 static int zoom_chip_create(struct usb_interface *intf,
-			      struct usb_device *device, int idx,
-			      const struct zoom_vendor_quirk *quirk,
-			      struct zoom_chip **rchip)
+			    struct usb_device *device, int idx,
+			    const struct zoom_vendor_quirk *quirk,
+			    struct zoom_chip **rchip)
 {
 	struct snd_card *card = NULL;
 	struct zoom_chip *chip;
@@ -62,9 +62,11 @@ static int zoom_chip_create(struct usb_interface *intf,
 	strscpy(card->driver, DRIVER_NAME, sizeof(card->driver));
 
 	if (quirk && quirk->device_name)
-		strscpy(card->shortname, quirk->device_name, sizeof(card->shortname));
+		strscpy(card->shortname, quirk->device_name,
+			sizeof(card->shortname));
 	else
-		strscpy(card->shortname, "Zoom generic audio", sizeof(card->shortname));
+		strscpy(card->shortname, "Zoom generic audio",
+			sizeof(card->shortname));
 
 	strlcat(card->longname, card->shortname, sizeof(card->longname));
 	len = strlcat(card->longname, " at ", sizeof(card->longname));
@@ -81,9 +83,10 @@ static int zoom_chip_create(struct usb_interface *intf,
 }
 
 static int zoom_chip_probe(struct usb_interface *intf,
-			     const struct usb_device_id *usb_id)
+			   const struct usb_device_id *usb_id)
 {
-	const struct zoom_vendor_quirk *quirk = (struct zoom_vendor_quirk *)usb_id->driver_info;
+	const struct zoom_vendor_quirk *quirk =
+		(struct zoom_vendor_quirk *)usb_id->driver_info;
 	int ret;
 	int i;
 	struct zoom_chip *chip;
@@ -110,7 +113,8 @@ static int zoom_chip_probe(struct usb_interface *intf,
 			break;
 
 	if (i >= SNDRV_CARDS) {
-		dev_err(&device->dev, "no available " CARD_NAME " audio device\n");
+		dev_err(&device->dev,
+			"no available " CARD_NAME " audio device\n");
 		ret = -ENODEV;
 		goto err;
 	}
