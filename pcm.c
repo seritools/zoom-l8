@@ -10,6 +10,7 @@
 
 #include <linux/slab.h>
 #include <sound/pcm.h>
+#include <sound/pcm_params.h>
 
 #include "pcm.h"
 #include "driver.h"
@@ -106,7 +107,7 @@ static const struct snd_pcm_hardware pcm_hw_rec = {
 	.channels_min = 1,
 	.channels_max = 12,
 	.buffer_bytes_max = 1024 * 1024,
-	.period_bytes_min = PCM_PACKET_SIZE * 12,
+	.period_bytes_min = PCM_PACKET_SIZE * 1,
 	.period_bytes_max = 512 * 1024,
 	.periods_min = 2,
 	.periods_max = 1024
@@ -463,6 +464,22 @@ out_fail:
 	rt->panic = true;
 }
 
+static int zoom_pcm_hw_channel_rule(struct snd_pcm_hw_params *params,
+				     struct snd_pcm_hw_rule *rule)
+{
+	struct snd_interval *period_bytes =
+		hw_param_interval(params, SNDRV_PCM_HW_PARAM_PERIOD_BYTES);
+	const struct snd_interval *channels =
+		hw_param_interval_c(params, SNDRV_PCM_HW_PARAM_CHANNELS);
+	struct snd_interval t;
+
+	snd_interval_any(&t);
+	t.min = PCM_PACKET_SIZE * channels->min;
+	t.integer = 1;
+
+	return snd_interval_refine(period_bytes, &t);
+}
+
 static int zoom_pcm_open(struct snd_pcm_substream *alsa_sub)
 {
 	struct pcm_runtime *rt = snd_pcm_substream_chip(alsa_sub);
@@ -493,6 +510,11 @@ static int zoom_pcm_open(struct snd_pcm_substream *alsa_sub)
 
 	sub->instance = alsa_sub;
 	sub->active = false;
+
+	snd_pcm_hw_rule_add(alsa_rt, 0, SNDRV_PCM_HW_PARAM_PERIOD_BYTES,
+			    zoom_pcm_hw_channel_rule, NULL,
+			    SNDRV_PCM_HW_PARAM_CHANNELS, -1);
+
 	mutex_unlock(&rt->stream_mutex);
 	return 0;
 }
