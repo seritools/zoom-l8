@@ -266,8 +266,6 @@ static void memcpy_pcm_playback(u8 *dest, u8 *src, u8 ch_sz, unsigned int skip,
 				return;
 			dest[base + b] = src[o++];
 		}
-
-		memset(dest + base + ch_sz, 0, 128 - ch_sz);
 	}
 }
 
