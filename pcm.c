@@ -62,13 +62,6 @@ struct pcm_runtime {
 	bool stream_wait_cond;
 };
 
-static const unsigned int rates[] = { 48000 };
-static const struct snd_pcm_hw_constraint_list constraints_extra_rates = {
-	.count = ARRAY_SIZE(rates),
-	.list = rates,
-	.mask = 0,
-};
-
 static const struct snd_pcm_hardware pcm_hw = {
 	.info = SNDRV_PCM_INFO_MMAP |
 		SNDRV_PCM_INFO_INTERLEAVED |
