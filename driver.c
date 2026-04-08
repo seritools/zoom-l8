@@ -106,7 +106,7 @@ static int zoom_chip_probe(struct usb_interface *intf,
 
 	/* check whether the card is already registered */
 	chip = NULL;
-	mutex_lock(&register_mutex);
+	guard(mutex)(&register_mutex);
 
 	for (i = 0; i < SNDRV_CARDS; i++)
 		if (enable[i])
@@ -115,14 +115,13 @@ static int zoom_chip_probe(struct usb_interface *intf,
 	if (i >= SNDRV_CARDS) {
 		dev_err(&device->dev,
 			"no available " CARD_NAME " audio device\n");
-		ret = -ENODEV;
-		goto err;
+		return -ENODEV;
 	}
 
 	ret = zoom_chip_create(intf, device, i, quirk, &chip);
 	if (ret < 0) {
 		dev_err(&device->dev, "zoom_chip_create\n");
-		goto err;
+		return ret;
 	}
 
 	ret = zoom_pcm_init(chip);
@@ -137,15 +136,11 @@ static int zoom_chip_probe(struct usb_interface *intf,
 		goto err_chip_destroy;
 	}
 
-	mutex_unlock(&register_mutex);
-
 	usb_set_intfdata(intf, chip);
 	return 0;
 
 err_chip_destroy:
 	snd_card_free(chip->card);
-err:
-	mutex_unlock(&register_mutex);
 	return ret;
 }
 

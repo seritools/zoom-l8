@@ -482,7 +482,7 @@ static int zoom_pcm_open(struct snd_pcm_substream *alsa_sub)
 	if (rt->panic)
 		return -EPIPE;
 
-	mutex_lock(&rt->stream_mutex);
+	guard(mutex)(&rt->stream_mutex);
 
 	if (alsa_sub->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		alsa_rt->hw = pcm_hw;
@@ -496,7 +496,6 @@ static int zoom_pcm_open(struct snd_pcm_substream *alsa_sub)
 
 	if (!sub) {
 		struct device *device = &rt->chip->dev->dev;
-		mutex_unlock(&rt->stream_mutex);
 		dev_err(device, "Invalid stream type\n");
 		return -EINVAL;
 	}
@@ -508,7 +507,6 @@ static int zoom_pcm_open(struct snd_pcm_substream *alsa_sub)
 			    zoom_pcm_hw_channel_rule, NULL,
 			    SNDRV_PCM_HW_PARAM_CHANNELS, -1);
 
-	mutex_unlock(&rt->stream_mutex);
 	return 0;
 }
 
@@ -521,7 +519,7 @@ static int zoom_pcm_close(struct snd_pcm_substream *alsa_sub)
 	if (rt->panic)
 		return 0;
 
-	mutex_lock(&rt->stream_mutex);
+	guard(mutex)(&rt->stream_mutex);
 	if (sub) {
 		zoom_pcm_stream_stop(rt);
 
@@ -531,7 +529,6 @@ static int zoom_pcm_close(struct snd_pcm_substream *alsa_sub)
 		sub->active = false;
 		spin_unlock_irqrestore(&sub->lock, flags);
 	}
-	mutex_unlock(&rt->stream_mutex);
 	return 0;
 }
 
@@ -546,7 +543,7 @@ static int zoom_pcm_prepare(struct snd_pcm_substream *alsa_sub)
 	if (!sub)
 		return -ENODEV;
 
-	mutex_lock(&rt->stream_mutex);
+	guard(mutex)(&rt->stream_mutex);
 
 	zoom_pcm_stream_stop(rt);
 
@@ -555,12 +552,9 @@ static int zoom_pcm_prepare(struct snd_pcm_substream *alsa_sub)
 
 	if (rt->stream_state == STREAM_DISABLED) {
 		ret = zoom_pcm_stream_start(rt);
-		if (ret) {
-			mutex_unlock(&rt->stream_mutex);
+		if (ret)
 			return ret;
-		}
 	}
-	mutex_unlock(&rt->stream_mutex);
 	return 0;
 }
 
@@ -665,9 +659,8 @@ void zoom_pcm_abort(struct zoom_chip *chip)
 	if (rt) {
 		rt->panic = true;
 
-		mutex_lock(&rt->stream_mutex);
+		guard(mutex)(&rt->stream_mutex);
 		zoom_pcm_stream_stop(rt);
-		mutex_unlock(&rt->stream_mutex);
 	}
 }
 
