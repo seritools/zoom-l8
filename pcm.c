@@ -17,7 +17,7 @@
 
 #define IN_EP           0x82
 #define OUT_EP          0x01
-#define PCM_N_URBS      4
+#define PCM_N_URBS      8
 #define PCM_URB_SIZE    512
 #define PCM_PACKET_SIZE (4 * 4) /* 32 Bit x Frames/URB */
 
