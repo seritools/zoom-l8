@@ -16,7 +16,7 @@
 #include "pcm.h"
 
 MODULE_AUTHOR("Sebastian Reimers <hallo@studio-link.de>");
-MODULE_DESCRIPTION("ZOOM L-8 USB audio driver");
+MODULE_DESCRIPTION("ZOOM LiveTrak L-8 USB audio driver");
 MODULE_LICENSE("GPL");
 
 static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX; /* Index 0-max */
@@ -24,7 +24,7 @@ static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR; /* Id for card */
 static bool enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP; /* Enable this card */
 
 #define DRIVER_NAME "snd-usb-zoom"
-#define CARD_NAME "ZOOM L-8"
+#define CARD_NAME "ZOOM LiveTrak L-8"
 
 module_param_array(index, int, NULL, 0444);
 MODULE_PARM_DESC(index, "Index value for " CARD_NAME " soundcard.");
@@ -178,14 +178,14 @@ static const struct usb_device_id device_table[] = {
 	{
 		USB_DEVICE_INTERFACE_NUMBER(0x1686, 0x0525, 2),
 		.driver_info = (unsigned long)&(const struct zoom_vendor_quirk) {
-			.device_name = "ZOOM L-8"
+			.device_name = CARD_NAME,
 			.rate = 48000,
 		}
 	},
 	{
 		USB_DEVICE_INTERFACE_NUMBER(0x1686, 0x0515, 2),
 		.driver_info = (unsigned long)&(const struct zoom_vendor_quirk) {
-			.device_name = "ZOOM L-8",
+			.device_name = CARD_NAME,
 			.rate = 44100,
 		}
 	},
