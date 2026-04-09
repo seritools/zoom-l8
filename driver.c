@@ -37,6 +37,7 @@ static DEFINE_MUTEX(register_mutex);
 
 struct zoom_vendor_quirk {
 	const char *device_name;
+	unsigned int rate;
 };
 
 static int zoom_chip_create(struct usb_interface *intf,
@@ -51,6 +52,16 @@ static int zoom_chip_create(struct usb_interface *intf,
 
 	*rchip = NULL;
 
+	if (!quirk) {
+		dev_err(&device->dev, "missing vendor quirk\n");
+		return -EINVAL;
+	}
+
+	if (!quirk->rate) {
+		dev_err(&device->dev, "invalid vendor quirk: missing rate\n");
+		return -EINVAL;
+	}
+
 	/* if we are here, card can be registered in alsa. */
 	ret = snd_card_new(&intf->dev, index[idx], id[idx], THIS_MODULE,
 			   sizeof(*chip), &card);
@@ -61,7 +72,7 @@ static int zoom_chip_create(struct usb_interface *intf,
 
 	strscpy(card->driver, DRIVER_NAME, sizeof(card->driver));
 
-	if (quirk && quirk->device_name)
+	if (quirk->device_name)
 		strscpy(card->shortname, quirk->device_name,
 			sizeof(card->shortname));
 	else
@@ -77,6 +88,7 @@ static int zoom_chip_create(struct usb_interface *intf,
 	chip = card->private_data;
 	chip->dev = device;
 	chip->card = card;
+	chip->rate = quirk->rate;
 
 	*rchip = chip;
 	return 0;
@@ -167,6 +179,14 @@ static const struct usb_device_id device_table[] = {
 		USB_DEVICE_INTERFACE_NUMBER(0x1686, 0x0525, 2),
 		.driver_info = (unsigned long)&(const struct zoom_vendor_quirk) {
 			.device_name = "ZOOM L-8"
+			.rate = 48000,
+		}
+	},
+	{
+		USB_DEVICE_INTERFACE_NUMBER(0x1686, 0x0515, 2),
+		.driver_info = (unsigned long)&(const struct zoom_vendor_quirk) {
+			.device_name = "ZOOM L-8",
+			.rate = 44100,
 		}
 	},
 	{}

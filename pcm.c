@@ -72,9 +72,7 @@ static const struct snd_pcm_hardware pcm_hw = {
 
 	.formats = SNDRV_PCM_FMTBIT_S32_LE,
 
-	.rates = SNDRV_PCM_RATE_48000,
-	.rate_min = 48000,
-	.rate_max = 48000,
+	// rates/min/max are set from zoom_chip
 	.channels_min = 2,
 	.channels_max = 4,
 	.buffer_bytes_max = 1024 * 1024,
@@ -94,9 +92,7 @@ static const struct snd_pcm_hardware pcm_hw_rec = {
 
 	.formats = SNDRV_PCM_FMTBIT_S32_LE,
 
-	.rates = SNDRV_PCM_RATE_48000,
-	.rate_min = 48000,
-	.rate_max = 48000,
+	// rates/min/max are set from zoom_chip
 	.channels_min = 1,
 	.channels_max = 12,
 	.buffer_bytes_max = 1024 * 1024,
@@ -492,6 +488,10 @@ static int zoom_pcm_open(struct snd_pcm_substream *alsa_sub)
 		dev_err(device, "Invalid stream type\n");
 		return -EINVAL;
 	}
+
+	alsa_rt->hw.rates = snd_pcm_rate_to_rate_bit(rt->chip->rate);
+	alsa_rt->hw.rate_min = rt->chip->rate;
+	alsa_rt->hw.rate_max = rt->chip->rate;
 
 	sub->instance = alsa_sub;
 	sub->active = false;

@@ -20,5 +20,6 @@ struct zoom_chip {
 	struct usb_device *dev;
 	struct snd_card *card;
 	struct pcm_runtime *pcm;
+	unsigned int rate;
 };
 #endif /* ZOOM_CHIP_H */
