@@ -147,25 +147,35 @@ static void zoom_pcm_stream_stop(struct pcm_runtime *rt)
 	}
 }
 
+/*
+ * Resets the USB interfaces as observed from the proprietary driver.
+ *
+ * The windows driver resets the interfaces in this exact order.
+ *
+ * call with stream_mutex locked
+ */
 static int zoom_interface_init(struct pcm_runtime *rt)
 {
-	int ret = 0;
+	int ret;
 
-	ret = usb_set_interface(rt->chip->dev, 1, 3); /* ALT=1 EP1 OUT 32 bit */
-	if (ret != 0) {
-		dev_err(&rt->chip->dev->dev,
-			"can't set first interface for device.\n");
-		return -EIO;
-	}
-
-	ret = usb_set_interface(rt->chip->dev, 2, 3); /* ALT=2 EP2 IN 32 bit */
-	if (ret != 0) {
-		dev_err(&rt->chip->dev->dev,
-			"can't set second interface for device.\n");
-		return -EIO;
-	}
+	ret = usb_set_interface(rt->chip->dev, 1, 0); /* EP1 OUT =    OFF */
+	if (ret != 0)
+		goto error;
+	ret = usb_set_interface(rt->chip->dev, 2, 0); /* EP2  IN =    OFF */
+	if (ret != 0)
+		goto error;
+	ret = usb_set_interface(rt->chip->dev, 2, 3); /* EP2  IN = 32 bit */
+	if (ret != 0)
+		goto error;
+	ret = usb_set_interface(rt->chip->dev, 1, 3); /* EP1 OUT = 32 bit */
+	if (ret != 0)
+		goto error;
 
 	return 0;
+
+error:
+	dev_err(&rt->chip->dev->dev, "can't set interface for device (ret=%d)\n", ret);
+	return ret;
 }
 
 /* call with stream_mutex locked */
