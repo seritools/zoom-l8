@@ -3,9 +3,10 @@
  * Linux driver for ZOOM devices (L-8 only at the moment)
  *
  * Copyright 2021 (C) Sebastian Reimers
+ * Copyright 2026 (C) Dennis Duda
  *
  * Authors:  Sebastian Reimers <hallo@studio-link.de>
- *
+ *           Dennis Duda <git@seri.tools>
  */
 
 #ifndef ZOOM_CHIP_H
