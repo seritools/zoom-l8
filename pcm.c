@@ -377,7 +377,6 @@ static void zoom_pcm_in_urb_handler(struct urb *usb_urb)
 	struct pcm_runtime *rt = in_urb->chip->pcm;
 	struct pcm_substream *sub;
 	bool do_period_elapsed = false;
-	unsigned long flags;
 	int ret;
 
 	if (rt->panic || rt->stream_state == STREAM_STOPPING)
@@ -391,11 +390,10 @@ static void zoom_pcm_in_urb_handler(struct urb *usb_urb)
 	}
 
 	sub = &rt->capture;
-	spin_lock_irqsave(&sub->lock, flags);
-	if (sub->active) {
-		do_period_elapsed = zoom_pcm_capture(sub, in_urb);
+	scoped_guard(spinlock_irqsave, &sub->lock) {
+		if (sub->active)
+			do_period_elapsed = zoom_pcm_capture(sub, in_urb);
 	}
-	spin_unlock_irqrestore(&sub->lock, flags);
 	if (do_period_elapsed)
 		snd_pcm_period_elapsed(sub->instance);
 
@@ -415,7 +413,6 @@ static void zoom_pcm_out_urb_handler(struct urb *usb_urb)
 	struct pcm_runtime *rt = out_urb->chip->pcm;
 	struct pcm_substream *sub;
 	bool do_period_elapsed = false;
-	unsigned long flags;
 	int ret;
 
 	if (rt->panic || rt->stream_state == STREAM_STOPPING)
@@ -435,14 +432,12 @@ static void zoom_pcm_out_urb_handler(struct urb *usb_urb)
 
 	/* now send our playback data (if a free out urb was found) */
 	sub = &rt->playback;
-	spin_lock_irqsave(&sub->lock, flags);
-
-	if (sub->active)
-		do_period_elapsed = zoom_pcm_playback(sub, out_urb);
-	else
-		memset(out_urb->buffer, 0, PCM_URB_SIZE);
-
-	spin_unlock_irqrestore(&sub->lock, flags);
+	scoped_guard(spinlock_irqsave, &sub->lock) {
+		if (sub->active)
+			do_period_elapsed = zoom_pcm_playback(sub, out_urb);
+		else
+			memset(out_urb->buffer, 0, PCM_URB_SIZE);
+	}
 
 	if (do_period_elapsed)
 		snd_pcm_period_elapsed(sub->instance);
@@ -514,7 +509,6 @@ static int zoom_pcm_close(struct snd_pcm_substream *alsa_sub)
 {
 	struct pcm_runtime *rt = snd_pcm_substream_chip(alsa_sub);
 	struct pcm_substream *sub = zoom_pcm_get_substream(alsa_sub);
-	unsigned long flags;
 
 	if (rt->panic)
 		return 0;
@@ -524,10 +518,9 @@ static int zoom_pcm_close(struct snd_pcm_substream *alsa_sub)
 		zoom_pcm_stream_stop(rt);
 
 		/* deactivate substream */
-		spin_lock_irqsave(&sub->lock, flags);
+		guard(spinlock_irqsave)(&sub->lock);
 		sub->instance = NULL;
 		sub->active = false;
-		spin_unlock_irqrestore(&sub->lock, flags);
 	}
 	return 0;
 }
@@ -571,16 +564,16 @@ static int zoom_pcm_trigger(struct snd_pcm_substream *alsa_sub, int cmd)
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		spin_lock_irq(&sub->lock);
-		sub->active = true;
-		spin_unlock_irq(&sub->lock);
+		scoped_guard(spinlock_irq, &sub->lock) {
+			sub->active = true;
+		}
 		return 0;
 
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		spin_lock_irq(&sub->lock);
-		sub->active = false;
-		spin_unlock_irq(&sub->lock);
+		scoped_guard(spinlock_irq, &sub->lock) {
+			sub->active = false;
+		}
 		return 0;
 
 	default:
@@ -592,15 +585,13 @@ static snd_pcm_uframes_t zoom_pcm_pointer(struct snd_pcm_substream *alsa_sub)
 {
 	struct pcm_substream *sub = zoom_pcm_get_substream(alsa_sub);
 	struct pcm_runtime *rt = snd_pcm_substream_chip(alsa_sub);
-	unsigned long flags;
 	snd_pcm_uframes_t dma_offset;
 
 	if (rt->panic || !sub)
 		return SNDRV_PCM_POS_XRUN;
 
-	spin_lock_irqsave(&sub->lock, flags);
+	guard(spinlock_irqsave)(&sub->lock);
 	dma_offset = sub->dma_off;
-	spin_unlock_irqrestore(&sub->lock, flags);
 	return bytes_to_frames(alsa_sub->runtime, dma_offset);
 }
 
