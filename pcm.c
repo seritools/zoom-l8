@@ -134,9 +134,7 @@ static void zoom_pcm_stream_stop(struct pcm_runtime *rt)
 				usb_kill_anchored_urbs(
 					&rt->out_urbs[i].submitted);
 			usb_kill_urb(&rt->out_urbs[i].instance);
-		}
 
-		for (i = 0; i < PCM_N_URBS; i++) {
 			time = usb_wait_anchor_empty_timeout(
 				&rt->in_urbs[i].submitted, 100);
 			if (!time)
@@ -702,21 +700,12 @@ int zoom_pcm_init(struct zoom_chip *chip)
 	for (i = 0; i < PCM_N_URBS; i++) {
 		ret = zoom_pcm_init_urb_out(&rt->out_urbs[i], chip, OUT_EP,
 					    zoom_pcm_out_urb_handler);
-		if (ret < 0) {
-			dev_err(&chip->dev->dev,
-				"zoom_pcm_init_urb_out failed\n");
+		if (ret < 0)
 			goto error;
-		}
-	}
-
-	for (i = 0; i < PCM_N_URBS; i++) {
 		ret = zoom_pcm_init_urb_in(&rt->in_urbs[i], chip, IN_EP,
 					   zoom_pcm_in_urb_handler);
-		if (ret < 0) {
-			dev_err(&chip->dev->dev,
-				"zoom_pcm_init_urb_in failed\n");
+		if (ret < 0)
 			goto error;
-		}
 	}
 
 	ret = snd_pcm_new(chip->card, "USB Audio", 0, 1, 1, &pcm);
@@ -739,10 +728,10 @@ int zoom_pcm_init(struct zoom_chip *chip)
 	return 0;
 
 error:
-	for (i = 0; i < PCM_N_URBS; i++)
+	for (i = 0; i < PCM_N_URBS; i++) {
 		kfree(rt->out_urbs[i].buffer);
-	for (i = 0; i < PCM_N_URBS; i++)
 		kfree(rt->in_urbs[i].buffer);
+	}
 	kfree(rt);
 	return ret;
 }
