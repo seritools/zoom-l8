@@ -105,18 +105,8 @@ static int zoom_chip_probe(struct usb_interface *intf,
 	int i;
 	struct zoom_chip *chip;
 	struct usb_device *device = interface_to_usbdev(intf);
-	u8 buffer[32]; //@TODO FIX buffer size!!!
 
 	dev_info(&device->dev, "zoom chip probe\n");
-#if 0
-	/* Initialize device / @TODO verify samplerate */
-	ret = usb_control_msg_recv(device, 0, 1, 0xa1, 256, 10240,
-			buffer, 32, 1000, GFP_KERNEL);
-	dev_dbg(&device->dev, "zoom chip CT1: %d\n", ret);
-	ret = usb_control_msg_recv(device, 0, 2, 0xa1, 256, 10240,
-			buffer, 32, 1000, GFP_KERNEL);
-	dev_dbg(&device->dev, "zoom chip CT2: %d\n", ret);
-#endif
 
 	/* check whether the card is already registered */
 	chip = NULL;
