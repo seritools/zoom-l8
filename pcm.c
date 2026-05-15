@@ -189,8 +189,6 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 		WRITE_ONCE(rt->panic, false);
 		rt->stream_wait_cond = false;
 
-		/* the device is rather forgetful, after some time without
-		 * URBs the device fallbacks to 16bit mode */
 		ret = zoom_interface_init(rt);
 		if (ret)
 			return ret;
@@ -284,8 +282,6 @@ static bool zoom_pcm_capture(struct pcm_substream *sub, struct pcm_urb *urb)
 	u8 ch_sz = alsa_rt->channels * 4; /* 32Bit */
 	unsigned int pcm_buffer_size, pcm_len, len;
 
-	WARN_ON(alsa_rt->format != SNDRV_PCM_FORMAT_S32_LE);
-
 	pcm_buffer_size = snd_pcm_lib_buffer_bytes(sub->instance);
 
 	pcm_len = ch_sz * 4; /* Channel size * 4 Frames */
@@ -334,8 +330,6 @@ static bool zoom_pcm_playback(struct pcm_substream *sub, struct pcm_urb *urb)
 	u8 *source;
 	u8 ch_sz = alsa_rt->channels * 4; /* 32Bit */
 	unsigned int pcm_buffer_size, pcm_len, len;
-
-	WARN_ON(alsa_rt->format != SNDRV_PCM_FORMAT_S32_LE);
 
 	pcm_buffer_size = snd_pcm_lib_buffer_bytes(sub->instance);
 
