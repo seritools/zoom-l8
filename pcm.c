@@ -124,8 +124,8 @@ static void zoom_pcm_stream_stop(struct pcm_runtime *rt)
 {
 	int i, time;
 
-	if (rt->stream_state != STREAM_DISABLED) {
-		rt->stream_state = STREAM_STOPPING;
+	if (READ_ONCE(rt->stream_state) != STREAM_DISABLED) {
+		WRITE_ONCE(rt->stream_state, STREAM_STOPPING);
 
 		for (i = 0; i < PCM_N_URBS; i++) {
 			time = usb_wait_anchor_empty_timeout(
@@ -143,7 +143,7 @@ static void zoom_pcm_stream_stop(struct pcm_runtime *rt)
 			usb_kill_urb(&rt->in_urbs[i].instance);
 		}
 
-		rt->stream_state = STREAM_DISABLED;
+		WRITE_ONCE(rt->stream_state, STREAM_DISABLED);
 	}
 }
 
@@ -184,9 +184,9 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 	int ret = 0;
 	int i;
 
-	if (rt->stream_state == STREAM_DISABLED) {
+	if (READ_ONCE(rt->stream_state) == STREAM_DISABLED) {
 		/* reset panic and wait condition when starting a new stream */
-		rt->panic = false;
+		WRITE_ONCE(rt->panic, false);
 		rt->stream_wait_cond = false;
 
 		/* the device is rather forgetful, after some time without
@@ -196,7 +196,7 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 			return ret;
 
 		/* submit our out urbs zero init */
-		rt->stream_state = STREAM_STARTING;
+		WRITE_ONCE(rt->stream_state, STREAM_STARTING);
 		for (i = 0; i < PCM_N_URBS; i++) {
 			memset(rt->out_urbs[i].buffer, 0, PCM_URB_SIZE);
 			usb_anchor_urb(&rt->out_urbs[i].instance,
@@ -225,7 +225,7 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 			struct device *device = &rt->chip->dev->dev;
 			dev_dbg(device, "%s: Stream is running wakeup event\n",
 				__func__);
-			rt->stream_state = STREAM_RUNNING;
+			WRITE_ONCE(rt->stream_state, STREAM_RUNNING);
 		} else {
 			zoom_pcm_stream_stop(rt);
 			return -EIO;
@@ -383,7 +383,8 @@ static void zoom_pcm_in_urb_handler(struct urb *usb_urb)
 	bool do_period_elapsed = false;
 	int ret;
 
-	if (rt->panic || rt->stream_state == STREAM_STOPPING)
+	if (READ_ONCE(rt->panic) ||
+	    READ_ONCE(rt->stream_state) == STREAM_STOPPING)
 		return;
 
 	if (unlikely(usb_urb->status == -ENOENT ||	/* unlinked */
@@ -416,7 +417,7 @@ static void zoom_pcm_in_urb_handler(struct urb *usb_urb)
 	return;
 
 out_fail:
-	rt->panic = true;
+	WRITE_ONCE(rt->panic, true);
 }
 
 static void zoom_pcm_out_urb_handler(struct urb *usb_urb)
@@ -428,7 +429,8 @@ static void zoom_pcm_out_urb_handler(struct urb *usb_urb)
 	bool do_period_elapsed = false;
 	int ret;
 
-	if (rt->panic || rt->stream_state == STREAM_STOPPING)
+	if (READ_ONCE(rt->panic) ||
+	    READ_ONCE(rt->stream_state) == STREAM_STOPPING)
 		return;
 
 	if (unlikely(usb_urb->status == -ENOENT ||	/* unlinked */
@@ -444,7 +446,7 @@ static void zoom_pcm_out_urb_handler(struct urb *usb_urb)
 		dev_warn_ratelimited(device, "%s: urb status=%d (continuing)\n",
 				     __func__, usb_urb->status);
 
-	if (rt->stream_state == STREAM_STARTING) {
+	if (READ_ONCE(rt->stream_state) == STREAM_STARTING) {
 		rt->stream_wait_cond = true;
 		wake_up(&rt->stream_wait_queue);
 	}
@@ -470,7 +472,7 @@ static void zoom_pcm_out_urb_handler(struct urb *usb_urb)
 	return;
 
 out_fail:
-	rt->panic = true;
+	WRITE_ONCE(rt->panic, true);
 }
 
 static int zoom_pcm_hw_channel_rule(struct snd_pcm_hw_params *params,
@@ -564,7 +566,7 @@ static int zoom_pcm_prepare(struct snd_pcm_substream *alsa_sub)
 
 	/* recover from panic: drain the zombie URB chain so the
 	 * stream_start below can re-init the device cleanly */
-	if (rt->panic)
+	if (READ_ONCE(rt->panic))
 		zoom_pcm_stream_stop(rt);
 
 	scoped_guard(spinlock_irqsave, &sub->lock) {
@@ -573,7 +575,7 @@ static int zoom_pcm_prepare(struct snd_pcm_substream *alsa_sub)
 		sub->active = false;
 	}
 
-	if (rt->stream_state == STREAM_DISABLED) {
+	if (READ_ONCE(rt->stream_state) == STREAM_DISABLED) {
 		ret = zoom_pcm_stream_start(rt);
 		if (ret)
 			return ret;
@@ -586,7 +588,7 @@ static int zoom_pcm_trigger(struct snd_pcm_substream *alsa_sub, int cmd)
 	struct pcm_substream *sub = zoom_pcm_get_substream(alsa_sub);
 	struct pcm_runtime *rt = snd_pcm_substream_chip(alsa_sub);
 
-	if (rt->panic)
+	if (READ_ONCE(rt->panic))
 		return -EPIPE;
 	if (!sub)
 		return -ENODEV;
@@ -617,7 +619,7 @@ static snd_pcm_uframes_t zoom_pcm_pointer(struct snd_pcm_substream *alsa_sub)
 	struct pcm_runtime *rt = snd_pcm_substream_chip(alsa_sub);
 	snd_pcm_uframes_t dma_offset;
 
-	if (rt->panic || !sub)
+	if (READ_ONCE(rt->panic) || !sub)
 		return SNDRV_PCM_POS_XRUN;
 
 	guard(spinlock_irqsave)(&sub->lock);
@@ -678,7 +680,7 @@ void zoom_pcm_abort(struct zoom_chip *chip)
 	struct pcm_runtime *rt = chip->pcm;
 
 	if (rt) {
-		rt->panic = true;
+		WRITE_ONCE(rt->panic, true);
 
 		guard(mutex)(&rt->stream_mutex);
 		zoom_pcm_stream_stop(rt);
