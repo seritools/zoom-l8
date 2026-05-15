@@ -728,23 +728,23 @@ int zoom_pcm_init(struct zoom_chip *chip)
 
 	ret = zoom_interface_init(rt);
 	if (ret)
-		return ret;
+		goto error_free_rt;
 
 	for (i = 0; i < PCM_N_URBS; i++) {
 		ret = zoom_pcm_init_urb_out(&rt->out_urbs[i], chip, OUT_EP,
 					    zoom_pcm_out_urb_handler);
 		if (ret < 0)
-			goto error;
+			goto error_free_urbs;
 		ret = zoom_pcm_init_urb_in(&rt->in_urbs[i], chip, IN_EP,
 					   zoom_pcm_in_urb_handler);
 		if (ret < 0)
-			goto error;
+			goto error_free_urbs;
 	}
 
 	ret = snd_pcm_new(chip->card, "USB Audio", 0, 1, 1, &pcm);
 	if (ret < 0) {
 		dev_err(&chip->dev->dev, "Cannot create pcm instance\n");
-		goto error;
+		goto error_free_urbs;
 	}
 
 	pcm->private_data = rt;
@@ -760,11 +760,12 @@ int zoom_pcm_init(struct zoom_chip *chip)
 	chip->pcm = rt;
 	return 0;
 
-error:
+error_free_urbs:
 	for (i = 0; i < PCM_N_URBS; i++) {
 		kfree(rt->out_urbs[i].buffer);
 		kfree(rt->in_urbs[i].buffer);
 	}
+error_free_rt:
 	kfree(rt);
 	return ret;
 }
