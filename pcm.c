@@ -629,8 +629,9 @@ static const struct snd_pcm_ops pcm_ops = {
 	.pointer = zoom_pcm_pointer,
 };
 
-static int zoom_pcm_init_urb_out(struct pcm_urb *urb, struct zoom_chip *chip,
-				 unsigned int ep, void (*handler)(struct urb *))
+static int zoom_pcm_init_urb(struct pcm_urb *urb, struct zoom_chip *chip,
+			     unsigned int pipe,
+			     void (*handler)(struct urb *))
 {
 	urb->chip = chip;
 	usb_init_urb(&urb->instance);
@@ -639,28 +640,7 @@ static int zoom_pcm_init_urb_out(struct pcm_urb *urb, struct zoom_chip *chip,
 	if (!urb->buffer)
 		return -ENOMEM;
 
-	usb_fill_bulk_urb(&urb->instance, chip->dev,
-			  usb_sndbulkpipe(chip->dev, ep), (void *)urb->buffer,
-			  PCM_URB_SIZE, handler, urb);
-	if (usb_urb_ep_type_check(&urb->instance))
-		return -EINVAL;
-	init_usb_anchor(&urb->submitted);
-
-	return 0;
-}
-
-static int zoom_pcm_init_urb_in(struct pcm_urb *urb, struct zoom_chip *chip,
-				unsigned int ep, void (*handler)(struct urb *))
-{
-	urb->chip = chip;
-	usb_init_urb(&urb->instance);
-
-	urb->buffer = kzalloc(PCM_URB_SIZE, GFP_KERNEL);
-	if (!urb->buffer)
-		return -ENOMEM;
-
-	usb_fill_bulk_urb(&urb->instance, chip->dev,
-			  usb_rcvbulkpipe(chip->dev, ep), (void *)urb->buffer,
+	usb_fill_bulk_urb(&urb->instance, chip->dev, pipe, urb->buffer,
 			  PCM_URB_SIZE, handler, urb);
 	if (usb_urb_ep_type_check(&urb->instance))
 		return -EINVAL;
@@ -733,12 +713,14 @@ int zoom_pcm_init(struct zoom_chip *chip)
 		goto error_free_rt;
 
 	for (i = 0; i < PCM_N_URBS; i++) {
-		ret = zoom_pcm_init_urb_out(&rt->out_urbs[i], chip, OUT_EP,
-					    zoom_pcm_out_urb_handler);
+		ret = zoom_pcm_init_urb(&rt->out_urbs[i], chip,
+					usb_sndbulkpipe(chip->dev, OUT_EP),
+					zoom_pcm_out_urb_handler);
 		if (ret < 0)
 			goto error_free_urbs;
-		ret = zoom_pcm_init_urb_in(&rt->in_urbs[i], chip, IN_EP,
-					   zoom_pcm_in_urb_handler);
+		ret = zoom_pcm_init_urb(&rt->in_urbs[i], chip,
+					usb_rcvbulkpipe(chip->dev, IN_EP),
+					zoom_pcm_in_urb_handler);
 		if (ret < 0)
 			goto error_free_urbs;
 	}
