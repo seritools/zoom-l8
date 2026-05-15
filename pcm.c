@@ -540,7 +540,12 @@ static int zoom_pcm_close(struct snd_pcm_substream *alsa_sub)
 
 	guard(mutex)(&rt->stream_mutex);
 	if (sub) {
-		zoom_pcm_stream_stop(rt);
+		struct pcm_substream *other =
+			(sub == &rt->playback) ? &rt->capture : &rt->playback;
+
+		/* only tear down URBs once the last substream is closed */
+		if (!other->instance)
+			zoom_pcm_stream_stop(rt);
 
 		/* deactivate substream */
 		guard(spinlock_irqsave)(&sub->lock);
@@ -563,10 +568,11 @@ static int zoom_pcm_prepare(struct snd_pcm_substream *alsa_sub)
 
 	guard(mutex)(&rt->stream_mutex);
 
-	zoom_pcm_stream_stop(rt);
-
-	sub->dma_off = 0;
-	sub->period_off = 0;
+	scoped_guard(spinlock_irqsave, &sub->lock) {
+		sub->dma_off = 0;
+		sub->period_off = 0;
+		sub->active = false;
+	}
 
 	if (rt->stream_state == STREAM_DISABLED) {
 		ret = zoom_pcm_stream_start(rt);
