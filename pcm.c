@@ -368,6 +368,7 @@ static void zoom_pcm_in_urb_handler(struct urb *usb_urb)
 {
 	struct pcm_urb *in_urb = usb_urb->context;
 	struct pcm_runtime *rt = in_urb->chip->pcm;
+	struct device *device = &rt->chip->dev->dev;
 	struct pcm_substream *sub;
 	bool do_period_elapsed = false;
 	int ret;
@@ -379,8 +380,14 @@ static void zoom_pcm_in_urb_handler(struct urb *usb_urb)
 		     usb_urb->status == -ENODEV ||	/* device removed */
 		     usb_urb->status == -ECONNRESET ||	/* unlinked */
 		     usb_urb->status == -ESHUTDOWN)) {	/* device disabled */
+		dev_err(device, "%s: panicking on urb status=%d\n",
+			__func__, usb_urb->status);
 		goto out_fail;
 	}
+
+	if (unlikely(usb_urb->status))
+		dev_warn_ratelimited(device, "%s: urb status=%d (continuing)\n",
+				     __func__, usb_urb->status);
 
 	sub = &rt->capture;
 	scoped_guard(spinlock_irqsave, &sub->lock) {
@@ -391,8 +398,10 @@ static void zoom_pcm_in_urb_handler(struct urb *usb_urb)
 		snd_pcm_period_elapsed(sub->instance);
 
 	ret = usb_submit_urb(&in_urb->instance, GFP_ATOMIC);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(device, "%s: resubmit failed ret=%d\n", __func__, ret);
 		goto out_fail;
+	}
 
 	return;
 
@@ -404,6 +413,7 @@ static void zoom_pcm_out_urb_handler(struct urb *usb_urb)
 {
 	struct pcm_urb *out_urb = usb_urb->context;
 	struct pcm_runtime *rt = out_urb->chip->pcm;
+	struct device *device = &rt->chip->dev->dev;
 	struct pcm_substream *sub;
 	bool do_period_elapsed = false;
 	int ret;
@@ -415,8 +425,14 @@ static void zoom_pcm_out_urb_handler(struct urb *usb_urb)
 		     usb_urb->status == -ENODEV ||	/* device removed */
 		     usb_urb->status == -ECONNRESET ||	/* unlinked */
 		     usb_urb->status == -ESHUTDOWN)) {	/* device disabled */
+		dev_err(device, "%s: panicking on urb status=%d\n",
+			__func__, usb_urb->status);
 		goto out_fail;
 	}
+
+	if (unlikely(usb_urb->status))
+		dev_warn_ratelimited(device, "%s: urb status=%d (continuing)\n",
+				     __func__, usb_urb->status);
 
 	if (rt->stream_state == STREAM_STARTING) {
 		rt->stream_wait_cond = true;
@@ -436,8 +452,10 @@ static void zoom_pcm_out_urb_handler(struct urb *usb_urb)
 		snd_pcm_period_elapsed(sub->instance);
 
 	ret = usb_submit_urb(&out_urb->instance, GFP_ATOMIC);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(device, "%s: resubmit failed ret=%d\n", __func__, ret);
 		goto out_fail;
+	}
 
 	return;
 
