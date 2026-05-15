@@ -495,8 +495,7 @@ static int zoom_pcm_open(struct snd_pcm_substream *alsa_sub)
 	struct pcm_substream *sub = NULL;
 	struct snd_pcm_runtime *alsa_rt = alsa_sub->runtime;
 
-	if (rt->panic)
-		return -EPIPE;
+	/* panic is recovered in prepare via stream_start; don't block opens */
 
 	guard(mutex)(&rt->stream_mutex);
 
@@ -535,9 +534,6 @@ static int zoom_pcm_close(struct snd_pcm_substream *alsa_sub)
 	struct pcm_runtime *rt = snd_pcm_substream_chip(alsa_sub);
 	struct pcm_substream *sub = zoom_pcm_get_substream(alsa_sub);
 
-	if (rt->panic)
-		return 0;
-
 	guard(mutex)(&rt->stream_mutex);
 	if (sub) {
 		struct pcm_substream *other =
@@ -561,12 +557,15 @@ static int zoom_pcm_prepare(struct snd_pcm_substream *alsa_sub)
 	struct pcm_substream *sub = zoom_pcm_get_substream(alsa_sub);
 	int ret;
 
-	if (rt->panic)
-		return -EPIPE;
 	if (!sub)
 		return -ENODEV;
 
 	guard(mutex)(&rt->stream_mutex);
+
+	/* recover from panic: drain the zombie URB chain so the
+	 * stream_start below can re-init the device cleanly */
+	if (rt->panic)
+		zoom_pcm_stream_stop(rt);
 
 	scoped_guard(spinlock_irqsave, &sub->lock) {
 		sub->dma_off = 0;
