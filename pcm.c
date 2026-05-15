@@ -596,14 +596,14 @@ static int zoom_pcm_trigger(struct snd_pcm_substream *alsa_sub, int cmd)
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
-		scoped_guard(spinlock_irq, &sub->lock) {
+		scoped_guard(spinlock_irqsave, &sub->lock) {
 			sub->active = true;
 		}
 		return 0;
 
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_PAUSE_PUSH:
-		scoped_guard(spinlock_irq, &sub->lock) {
+		scoped_guard(spinlock_irqsave, &sub->lock) {
 			sub->active = false;
 		}
 		return 0;
