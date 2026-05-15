@@ -26,7 +26,6 @@ struct pcm_urb {
 	struct zoom_chip *chip;
 
 	struct urb instance;
-	struct usb_anchor submitted;
 	u8 *buffer;
 };
 
@@ -122,24 +121,13 @@ static struct pcm_substream *zoom_pcm_get_substream(
 /* call with stream_mutex locked */
 static void zoom_pcm_stream_stop(struct pcm_runtime *rt)
 {
-	int i, time;
+	int i;
 
 	if (READ_ONCE(rt->stream_state) != STREAM_DISABLED) {
 		WRITE_ONCE(rt->stream_state, STREAM_STOPPING);
 
 		for (i = 0; i < PCM_N_URBS; i++) {
-			time = usb_wait_anchor_empty_timeout(
-				&rt->out_urbs[i].submitted, 100);
-			if (!time)
-				usb_kill_anchored_urbs(
-					&rt->out_urbs[i].submitted);
 			usb_kill_urb(&rt->out_urbs[i].instance);
-
-			time = usb_wait_anchor_empty_timeout(
-				&rt->in_urbs[i].submitted, 100);
-			if (!time)
-				usb_kill_anchored_urbs(
-					&rt->in_urbs[i].submitted);
 			usb_kill_urb(&rt->in_urbs[i].instance);
 		}
 
@@ -197,8 +185,6 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 		WRITE_ONCE(rt->stream_state, STREAM_STARTING);
 		for (i = 0; i < PCM_N_URBS; i++) {
 			memset(rt->out_urbs[i].buffer, 0, PCM_URB_SIZE);
-			usb_anchor_urb(&rt->out_urbs[i].instance,
-				       &rt->out_urbs[i].submitted);
 			ret = usb_submit_urb(&rt->out_urbs[i].instance,
 					     GFP_ATOMIC);
 			if (ret) {
@@ -206,8 +192,6 @@ static int zoom_pcm_stream_start(struct pcm_runtime *rt)
 				return ret;
 			}
 
-			usb_anchor_urb(&rt->in_urbs[i].instance,
-				       &rt->in_urbs[i].submitted);
 			ret = usb_submit_urb(&rt->in_urbs[i].instance,
 					     GFP_ATOMIC);
 			if (ret) {
@@ -644,7 +628,6 @@ static int zoom_pcm_init_urb(struct pcm_urb *urb, struct zoom_chip *chip,
 			  PCM_URB_SIZE, handler, urb);
 	if (usb_urb_ep_type_check(&urb->instance))
 		return -EINVAL;
-	init_usb_anchor(&urb->submitted);
 
 	return 0;
 }
