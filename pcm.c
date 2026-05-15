@@ -690,6 +690,12 @@ static void zoom_pcm_destroy(struct zoom_chip *chip)
 	struct pcm_runtime *rt = chip->pcm;
 	int i;
 
+	/* defensive: ensure no URB is in flight before freeing its buffer */
+	for (i = 0; i < PCM_N_URBS; i++) {
+		usb_kill_urb(&rt->out_urbs[i].instance);
+		usb_kill_urb(&rt->in_urbs[i].instance);
+	}
+
 	for (i = 0; i < PCM_N_URBS; i++) {
 		kfree(rt->out_urbs[i].buffer);
 		kfree(rt->in_urbs[i].buffer);
