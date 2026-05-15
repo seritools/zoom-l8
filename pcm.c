@@ -640,6 +640,11 @@ void zoom_pcm_abort(struct zoom_chip *chip)
 	if (rt) {
 		WRITE_ONCE(rt->panic, true);
 
+		if (rt->playback.instance)
+			snd_pcm_stop_xrun(rt->playback.instance);
+		if (rt->capture.instance)
+			snd_pcm_stop_xrun(rt->capture.instance);
+
 		/* poison instead of kill so any racing handler that tries
 		 * to resubmit gets -EPERM and gives up */
 		for (i = 0; i < PCM_N_URBS; i++) {
