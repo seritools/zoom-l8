@@ -3,3 +3,4 @@
 *.cmd
 *.ko
 *.symvers
+snd-usb-zoom.mod.c
