@@ -635,12 +635,17 @@ static int zoom_pcm_init_urb(struct pcm_urb *urb, struct zoom_chip *chip,
 void zoom_pcm_abort(struct zoom_chip *chip)
 {
 	struct pcm_runtime *rt = chip->pcm;
+	int i;
 
 	if (rt) {
 		WRITE_ONCE(rt->panic, true);
 
-		guard(mutex)(&rt->stream_mutex);
-		zoom_pcm_stream_stop(rt);
+		/* poison instead of kill so any racing handler that tries
+		 * to resubmit gets -EPERM and gives up */
+		for (i = 0; i < PCM_N_URBS; i++) {
+			usb_poison_urb(&rt->out_urbs[i].instance);
+			usb_poison_urb(&rt->in_urbs[i].instance);
+		}
 	}
 }
 
